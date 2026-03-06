@@ -1,8 +1,4 @@
-# 🏗️ Terraform Azure — Architecture Modulaire dev
-
-Architecture Terraform complète pour Azure, conçue pour que `main.tf` soit le **seul fichier à toucher** pour déployer ou modifier l'infrastructure.
-
----# 🏗️ Terraform Azure dev — Architecture Modulaire
+# 🏗️ Terraform Azure dev — Architecture Modulaire
 
 ## 📁 Structure
 
@@ -81,50 +77,3 @@ terraform output -json database | jq '.admin_password'
 ```bash
 terraform destroy
 ```
-
-
-## 📁 Structure du projet
-
-```
-terraform-azure-dev/
-├── main.tf                    ← ✅ Le seul fichier à toucher
-├── variables.tf               ← Déclaration de toutes les variables
-├── outputs.tf                 ← Sorties safe et sensibles séparées
-├── providers.tf               ← Configuration Azure + providers
-├── terraform.tfvars           ← Tes valeurs (jamais committé)
-├── terraform.tfvars.example   ← Modèle safe à committer
-├── .gitignore                 ← Protège les fichiers sensibles
-└── modules/
-    ├── resource_group/        ← Groupe de ressources (toujours actif)
-    ├── networking/            ← VNet + Subnets + NSG
-    ├── virtual_machine/       ← VM Linux ou Windows
-    ├── storage/               ← Storage Account + Containers
-    ├── database/              ← Azure SQL Server + Database
-    ├── keyvault/              ← Key Vault + Secrets
-    └── monitoring/            ← Log Analytics + Application Insights
-```
-
----
-
-## ⚙️ Modules disponibles
-
-| Module | Ressources créées | Variable d'activation |
-|--------|------------------|-----------------------|
-| **resource_group** | Resource Group Azure | Toujours actif |
-| **networking** | VNet, Subnets, NSG, règles SSH/HTTP | `create_networking = true` |
-| **virtual_machine** | VM Linux/Windows, NIC, IP publique optionnelle, clé SSH auto | `create_vm = true` |
-| **storage** | Storage Account, Containers, Lifecycle policy | `create_storage = true` |
-| **database** | Azure SQL Server, Database, Firewall rules | `create_database = true` |
-| **keyvault** | Key Vault, Secrets, Access policies | `create_keyvault = true` |
-| **monitoring** | Log Analytics, Application Insights, Alerte CPU | `create_monitoring = true` |
-
----
-
-## 🔗 Dépendances entre modules
-
-```
-resource_group ◄─── tous les modules en dépendent
-networking     ◄─── virtual_machine (subnet_id)
-virtual_machine ──► keyvault (ssh_private_key, managed identity)
-database        ──► keyvault (admin_password, connection_string)
-virtual_machine ──► monitoring (vm_resource_id pour alertes CPU)
