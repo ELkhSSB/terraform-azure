@@ -3,6 +3,7 @@
 #  Tu n'as qu'à activer/désactiver les modules avec true/false
 #  et ajuster les variables dans variables.tf (ou terraform.tfvars)
 # ================================================================
+
 locals {
   project     = var.project
   environment = var.environment
@@ -139,3 +140,4 @@ module "monitoring" {
   vm_resource_id      = var.create_vm ? module.virtual_machine[0].vm_id : ""
   tags                = local.common_tags
 }
+
