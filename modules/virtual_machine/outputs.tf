@@ -1,7 +1,7 @@
 output "vm_id" {
   value = var.config.os_type == "linux" ? (
     length(azurerm_linux_virtual_machine.this) > 0 ? azurerm_linux_virtual_machine.this[0].id : null
-  ) : (
+    ) : (
     length(azurerm_windows_virtual_machine.this) > 0 ? azurerm_windows_virtual_machine.this[0].id : null
   )
 }
@@ -9,7 +9,7 @@ output "vm_id" {
 output "vm_name" {
   value = var.config.os_type == "linux" ? (
     length(azurerm_linux_virtual_machine.this) > 0 ? azurerm_linux_virtual_machine.this[0].name : null
-  ) : (
+    ) : (
     length(azurerm_windows_virtual_machine.this) > 0 ? azurerm_windows_virtual_machine.this[0].name : null
   )
 }
@@ -36,7 +36,7 @@ output "principal_id" {
   description = "Managed Identity principal ID"
   value = var.config.os_type == "linux" ? (
     length(azurerm_linux_virtual_machine.this) > 0 ? azurerm_linux_virtual_machine.this[0].identity[0].principal_id : null
-  ) : (
+    ) : (
     length(azurerm_windows_virtual_machine.this) > 0 ? azurerm_windows_virtual_machine.this[0].identity[0].principal_id : null
   )
 }

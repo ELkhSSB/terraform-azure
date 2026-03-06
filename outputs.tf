@@ -8,9 +8,9 @@ output "resource_group_name" {
 
 output "networking" {
   value = var.create_networking ? {
-    vnet_id      = module.networking[0].vnet_id
-    vnet_name    = module.networking[0].vnet_name
-    subnet_ids   = module.networking[0].subnet_ids
+    vnet_id    = module.networking[0].vnet_id
+    vnet_name  = module.networking[0].vnet_name
+    subnet_ids = module.networking[0].subnet_ids
   } : null
 }
 
@@ -38,8 +38,8 @@ output "storage" {
 
 output "database" {
   value = var.create_database ? {
-    server_fqdn      = module.database[0].server_fqdn
-    database_name    = module.database[0].database_name
+    server_fqdn       = module.database[0].server_fqdn
+    database_name     = module.database[0].database_name
     connection_string = module.database[0].connection_string
   } : null
 }

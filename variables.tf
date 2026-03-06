@@ -45,8 +45,8 @@ variable "subnets" {
     address_prefix = string
   }))
   default = {
-    subnet-app = { address_prefix = "10.0.1.0/24" }
-    subnet-db  = { address_prefix = "10.0.2.0/24" }
+    subnet-app  = { address_prefix = "10.0.1.0/24" }
+    subnet-db   = { address_prefix = "10.0.2.0/24" }
     subnet-mgmt = { address_prefix = "10.0.3.0/24" }
   }
 }
@@ -113,18 +113,18 @@ variable "create_database" {
 variable "database_config" {
   description = "Configuration de la base de données"
   type = object({
-    server_name    = string
-    db_name        = string
-    admin_login    = string
-    sku_name       = string
-    max_size_gb    = number
+    server_name = string
+    db_name     = string
+    admin_login = string
+    sku_name    = string
+    max_size_gb = number
   })
   default = {
-    server_name    = "sql-server"
-    db_name        = "db-dev"
-    admin_login    = "sqladmin"
-    sku_name       = "S1"
-    max_size_gb    = 32
+    server_name = "sql-server"
+    db_name     = "db-dev"
+    admin_login = "sqladmin"
+    sku_name    = "S1"
+    max_size_gb = 32
   }
 }
 

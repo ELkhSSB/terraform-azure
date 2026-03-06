@@ -40,7 +40,7 @@ module "networking" {
   resource_group_name = module.resource_group.name
   address_space       = var.vnet_address_space
   subnets             = var.subnets
-  allowed_mgmt_cidr   = "154.146.250.207/32"   
+  allowed_mgmt_cidr   = "154.146.250.207/32"
   tags                = local.common_tags
 }
 
@@ -58,8 +58,8 @@ module "virtual_machine" {
   resource_group_name = module.resource_group.name
   config              = var.vm_config
   subnet_id           = var.create_networking ? module.networking[0].subnet_ids[var.vm_subnet_name] : ""
-  enable_public_ip    = false   # ← Passe à true si tu veux une IP publique
-  ssh_public_key      = ""      # ← Colle ta clé SSH publique ici, sinon générée automatiquement
+  enable_public_ip    = false # ← Passe à true si tu veux une IP publique
+  ssh_public_key      = ""    # ← Colle ta clé SSH publique ici, sinon générée automatiquement
   tags                = local.common_tags
 }
 
@@ -91,9 +91,9 @@ module "database" {
   location            = local.location
   resource_group_name = module.resource_group.name
   config              = var.database_config
-  aad_admin_object_id = var.aad_admin_object_id    
+  aad_admin_object_id = var.aad_admin_object_id
   allowed_ip_rules    = var.allowed_ip_rules
-  tags = local.common_tags
+  tags                = local.common_tags
 }
 
 # ----------------------------------------------------------------
@@ -117,7 +117,7 @@ module "keyvault" {
 
   # Secrets à stocker (ajoute ceux dont tu as besoin)
   secrets = var.create_database ? {
-    db-admin-password   = module.database[0].admin_password
+    db-admin-password    = module.database[0].admin_password
     db-connection-string = module.database[0].connection_string
   } : {}
 
