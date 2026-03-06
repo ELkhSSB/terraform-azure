@@ -32,6 +32,7 @@ resource "azurerm_key_vault" "this" {
   tags = var.tags
 }
 
+# Accès pour les identités managées (VMs, etc.)
 resource "azurerm_key_vault_access_policy" "identities" {
   for_each = var.managed_identity_ids
 
@@ -42,17 +43,55 @@ resource "azurerm_key_vault_access_policy" "identities" {
   secret_permissions = ["Get", "List"]
 }
 
-resource "azurerm_key_vault_secret" "this" {
-  for_each = var.secrets
+# Secrets non sensibles (noms de serveurs, endpoints, etc.)
+resource "azurerm_key_vault_secret" "plain" {
+  for_each = var.plain_secrets
 
   name         = each.key
   value        = each.value
   key_vault_id = azurerm_key_vault.this.id
-
-  # Le secret lui-même est marqué sensitive dans l'output
-  tags = var.tags
+  tags         = var.tags
 
   lifecycle {
-    ignore_changes = [value]  # ne pas écraser si modifié manuellement dans le vault
+    ignore_changes = [value]
+  }
+}
+
+# Secret : mot de passe base de données
+resource "azurerm_key_vault_secret" "db_password" {
+  count        = var.db_password != "" ? 1 : 0
+  name         = "db-admin-password"
+  value        = var.db_password
+  key_vault_id = azurerm_key_vault.this.id
+  tags         = var.tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+# Secret : connection string base de données
+resource "azurerm_key_vault_secret" "db_connection_string" {
+  count        = var.db_connection_string != "" ? 1 : 0
+  name         = "db-connection-string"
+  value        = var.db_connection_string
+  key_vault_id = azurerm_key_vault.this.id
+  tags         = var.tags
+
+  lifecycle {
+    ignore_changes = [value]
+  }
+}
+
+# Secret : clé SSH de la VM
+resource "azurerm_key_vault_secret" "vm_ssh_key" {
+  count        = var.vm_ssh_private_key != "" ? 1 : 0
+  name         = "vm-ssh-private-key"
+  value        = var.vm_ssh_private_key
+  key_vault_id = azurerm_key_vault.this.id
+  tags         = var.tags
+
+  lifecycle {
+    ignore_changes = [value]
   }
 }

@@ -168,3 +168,22 @@ variable "allowed_ip_rules" {
   default   = {}
   sensitive = true
 }
+
+# --- VM options supplémentaires ---
+variable "vm_enable_public_ip" {
+  description = "Activer une IP publique sur la VM"
+  type        = bool
+  default     = false
+}
+
+variable "vm_ssh_public_key" {
+  description = "Clé SSH publique (laisse vide pour génération automatique)"
+  type        = string
+  default     = ""
+}
+
+variable "allowed_mgmt_cidr" {
+  description = "CIDR autorisé pour SSH (ex: 41.92.45.12/32)"
+  type        = string
+  default     = "*"
+}

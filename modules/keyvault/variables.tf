@@ -29,8 +29,27 @@ variable "managed_identity_ids" {
   default = {}
 }
 
-variable "secrets" {
-  type      = map(string)
-  default   = {}
+# Secrets NON sensibles — utilisables dans for_each (endpoints, noms, etc.)
+variable "plain_secrets" {
+  type    = map(string)
+  default = {}
+}
+
+# Secrets sensibles — passés individuellement pour éviter le bug for_each
+variable "db_password" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "db_connection_string" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "vm_ssh_private_key" {
+  type      = string
+  default   = ""
   sensitive = true
 }

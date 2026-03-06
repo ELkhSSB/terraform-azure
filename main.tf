@@ -3,7 +3,6 @@
 #  Tu n'as qu'à activer/désactiver les modules avec true/false
 #  et ajuster les variables dans variables.tf (ou terraform.tfvars)
 # ================================================================
-
 locals {
   project     = var.project
   environment = var.environment
@@ -28,7 +27,6 @@ module "resource_group" {
 
 # ----------------------------------------------------------------
 # 2. NETWORKING — VNet, Subnets, NSG
-#    Activer : create_networking = true dans variables.tf
 # ----------------------------------------------------------------
 module "networking" {
   count  = var.create_networking ? 1 : 0
@@ -46,8 +44,6 @@ module "networking" {
 
 # ----------------------------------------------------------------
 # 3. VIRTUAL MACHINE — Linux ou Windows
-#    Activer : create_vm = true dans variables.tf
-#    Prérequis : create_networking = true
 # ----------------------------------------------------------------
 module "virtual_machine" {
   count  = var.create_vm ? 1 : 0
@@ -58,14 +54,13 @@ module "virtual_machine" {
   resource_group_name = module.resource_group.name
   config              = var.vm_config
   subnet_id           = var.create_networking ? module.networking[0].subnet_ids[var.vm_subnet_name] : ""
-  enable_public_ip    = false # ← Passe à true si tu veux une IP publique
-  ssh_public_key      = ""    # ← Colle ta clé SSH publique ici, sinon générée automatiquement
+  enable_public_ip    = var.vm_enable_public_ip
+  ssh_public_key      = var.vm_ssh_public_key
   tags                = local.common_tags
 }
 
 # ----------------------------------------------------------------
 # 4. STORAGE ACCOUNT — Blob containers
-#    Activer : create_storage = true dans variables.tf
 # ----------------------------------------------------------------
 module "storage" {
   count  = var.create_storage ? 1 : 0
@@ -81,7 +76,6 @@ module "storage" {
 
 # ----------------------------------------------------------------
 # 5. BASE DE DONNÉES — Azure SQL Server + Database
-#    Activer : create_database = true dans variables.tf
 # ----------------------------------------------------------------
 module "database" {
   count  = var.create_database ? 1 : 0
@@ -110,16 +104,21 @@ module "keyvault" {
   resource_group_name = module.resource_group.name
   sku                 = var.keyvault_sku
 
-  # Donner accès aux VMs (Managed Identity)
+  # Identités managées des VMs
   managed_identity_ids = var.create_vm ? {
     vm-identity = module.virtual_machine[0].principal_id
   } : {}
 
-  # Secrets à stocker (ajoute ceux dont tu as besoin)
-  secrets = var.create_database ? {
-    db-admin-password    = module.database[0].admin_password
-    db-connection-string = module.database[0].connection_string
-  } : {}
+  # Secrets NON sensibles — safe pour for_each
+  plain_secrets = {
+    "db-server-fqdn" = var.create_database ? module.database[0].server_fqdn : ""
+    "db-name"        = var.create_database ? module.database[0].database_name : ""
+  }
+
+  # Secrets SENSIBLES — passés individuellement
+  db_password          = var.create_database ? module.database[0].admin_password : ""
+  db_connection_string = var.create_database ? module.database[0].connection_string : ""
+  vm_ssh_private_key   = var.create_vm ? coalesce(module.virtual_machine[0].ssh_private_key, "") : ""
 
   tags = local.common_tags
 }
