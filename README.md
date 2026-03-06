@@ -1,79 +1,30 @@
-# 🏗️ Terraform Azure dev — Architecture Modulaire
+Readme · MDCopier🏗️ Terraform Azure — Architecture Modulaire Preprod
+Architecture Terraform complète pour Azure, conçue pour que main.tf soit le seul fichier à toucher pour déployer ou modifier l'infrastructure.
 
-## 📁 Structure
-
-```
-terraform-azure-dev/
-├── main.tf              ← ✅ Le seul fichier à toucher
-├── variables.tf         ← Déclaration des variables
-├── outputs.tf           ← Sorties de tous les modules
-├── providers.tf         ← Config Azure provider
-├── terraform.tfvars     ← Tes valeurs (à personnaliser)
+📁 Structure du projet
+terraform-azure-preprod/
+├── main.tf                    ← ✅ Le seul fichier à toucher
+├── variables.tf               ← Déclaration de toutes les variables
+├── outputs.tf                 ← Sorties safe et sensibles séparées
+├── providers.tf               ← Configuration Azure + providers
+├── terraform.tfvars           ← Tes valeurs (jamais committé)
+├── terraform.tfvars.example   ← Modèle safe à committer
+├── .gitignore                 ← Protège les fichiers sensibles
 └── modules/
-    ├── resource_group/  ← Groupe de ressources
-    ├── networking/      ← VNet + Subnets + NSG
-    ├── virtual_machine/ ← VM Linux ou Windows
-    ├── storage/         ← Storage Account + Containers
-    ├── database/        ← Azure SQL Server + DB
-    ├── keyvault/        ← Key Vault + Secrets
-    └── monitoring/      ← Log Analytics + App Insights
-```
+    ├── resource_group/        ← Groupe de ressources (toujours actif)
+    ├── networking/            ← VNet + Subnets + NSG
+    ├── virtual_machine/       ← VM Linux ou Windows
+    ├── storage/               ← Storage Account + Containers
+    ├── database/              ← Azure SQL Server + Database
+    ├── keyvault/              ← Key Vault + Secrets
+    └── monitoring/            ← Log Analytics + Application Insights
 
-## 🚀 Démarrage rapide
+⚙️ Modules disponibles
+ModuleRessources crééesVariable d'activationresource_groupResource Group AzureToujours actifnetworkingVNet, Subnets, NSG, règles SSH/HTTPcreate_networking = truevirtual_machineVM Linux/Windows, NIC, IP publique optionnelle, clé SSH autocreate_vm = truestorageStorage Account, Containers, Lifecycle policycreate_storage = truedatabaseAzure SQL Server, Database, Firewall rulescreate_database = truekeyvaultKey Vault, Secrets, Access policiescreate_keyvault = truemonitoringLog Analytics, Application Insights, Alerte CPUcreate_monitoring = true
 
-```bash
-# 1. Connexion Azure
-az login
-az account set --subscription "TON-SUBSCRIPTION-ID"
-
-# 2. Init
-terraform init
-
-# 3. Voir ce qui va être créé
-terraform plan
-
-# 4. Appliquer
-terraform apply
-```
-
-## ⚙️ Activer un module
-
-Dans `terraform.tfvars`, passe la variable à `true` :
-
-| Module         | Variable             |
-|---------------|----------------------|
-| Networking     | `create_networking = true` |
-| VM             | `create_vm = true`   |
-| Storage        | `create_storage = true` |
-| Database       | `create_database = true` |
-| Key Vault      | `create_keyvault = true` |
-| Monitoring     | `create_monitoring = true` |
-
-> 💡 Le **Resource Group** est toujours créé automatiquement.
-
-##  Dépendances entre modules
-
-```
-resource_group ← tous les modules en dépendent
-networking     ← virtual_machine en dépend (subnet_id)
-virtual_machine ← keyvault (managed identity)
-database       ← keyvault (mot de passe stocké)
-```
-
-## 🔑 Récupérer les secrets après apply
-
-```bash
-# Clé SSH de la VM
-terraform output -raw vm_ssh_private_key > vm_key.pem
-chmod 400 vm_key.pem
-ssh -i vm_key.pem azureuser@<public_ip>
-
-# Mot de passe SQL
-terraform output -json database | jq '.admin_password'
-```
-
-## 🧹 Destruction
-
-```bash
-terraform destroy
-```
+🔗 Dépendances entre modules
+resource_group ◄─── tous les modules en dépendent
+networking     ◄─── virtual_machine (subnet_id)
+virtual_machine ──► keyvault (ssh_private_key, managed identity)
+database        ──► keyvault (admin_password, connection_string)
+virtual_machine ──► monitoring (vm_resource_id pour alertes CPU)
