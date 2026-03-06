@@ -1,6 +1,5 @@
 # ============================================
 # MODULE KEY VAULT
-# Stockage sécurisé des secrets + accès policies
 # ============================================
 
 data "azurerm_client_config" "current" {}
@@ -18,10 +17,9 @@ resource "azurerm_key_vault" "this" {
   enabled_for_disk_encryption = true
   tenant_id                   = data.azurerm_client_config.current.tenant_id
   soft_delete_retention_days  = 7
-  purge_protection_enabled    = false  # true en prod
+  purge_protection_enabled    = false
   sku_name                    = var.sku
 
-  # Accès Terraform (le caller courant)
   access_policy {
     tenant_id = data.azurerm_client_config.current.tenant_id
     object_id = data.azurerm_client_config.current.object_id
@@ -34,7 +32,6 @@ resource "azurerm_key_vault" "this" {
   tags = var.tags
 }
 
-# Accès pour les identités managées (VMs, etc.)
 resource "azurerm_key_vault_access_policy" "identities" {
   for_each = var.managed_identity_ids
 
@@ -45,12 +42,17 @@ resource "azurerm_key_vault_access_policy" "identities" {
   secret_permissions = ["Get", "List"]
 }
 
-# Stocker les secrets passés en variable
 resource "azurerm_key_vault_secret" "this" {
   for_each = var.secrets
 
   name         = each.key
   value        = each.value
   key_vault_id = azurerm_key_vault.this.id
-  tags         = var.tags
+
+  # Le secret lui-même est marqué sensitive dans l'output
+  tags = var.tags
+
+  lifecycle {
+    ignore_changes = [value]  # ne pas écraser si modifié manuellement dans le vault
+  }
 }

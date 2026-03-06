@@ -129,6 +129,19 @@ jobs:
             -var="environment=dev"
         working-directory: ${{ env.TF_WORKING_DIR }}
         continue-on-error: true
+      # Filtrer les données sensibles du plan avant de les afficher
+      - name: Extraire le plan (sans données sensibles)
+        id: plan_output
+        run: |
+          terraform show -no-color tfplan \
+            | grep -v "sensitive" \
+            | grep -v "password" \
+            | grep -v "secret" \
+            | grep -v "key" \
+            > plan_safe.txt || true
+          echo "plan_lines=$(wc -l < plan_safe.txt)" >> $GITHUB_OUTPUT
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
 
       - name: Sauvegarder le plan
         uses: actions/upload-artifact@v4
@@ -218,13 +231,26 @@ jobs:
         run: terraform apply -auto-approve tfplan
         working-directory: ${{ env.TF_WORKING_DIR }}
 
-      - name: Résumé du déploiement
+      # Afficher uniquement les outputs NON sensibles
+      - name: Résumé du déploiement (sans données sensibles)
         run: |
           echo "## ✅ Déploiement réussi" >> $GITHUB_STEP_SUMMARY
-          echo "- **Environnement** : dev" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environnement** : preprod" >> $GITHUB_STEP_SUMMARY
           echo "- **Déclenché par** : ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit** : ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          terraform output -no-color >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Ressources créées" >> $GITHUB_STEP_SUMMARY
+          # On affiche uniquement les outputs non sensibles
+          terraform output -json | \
+            python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          for k, v in data.items():
+              if not v.get('sensitive', False):
+                  print(f'- **{k}**: {json.dumps(v[\"value\"], indent=2)}')
+              else:
+                  print(f'- **{k}**: 🔒 (sensible — récupérer via Key Vault)')
+          " >> $GITHUB_STEP_SUMMARY
         working-directory: ${{ env.TF_WORKING_DIR }}
 
   # ---------------------------------------------------------------

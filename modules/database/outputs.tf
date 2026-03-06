@@ -20,5 +20,6 @@ output "admin_password" {
 }
 
 output "connection_string" {
-  value = "Server=tcp:${azurerm_mssql_server.this.fully_qualified_domain_name},1433;Database=${azurerm_mssql_database.this.name};User ID=${azurerm_mssql_server.this.administrator_login};Encrypt=True;"
+  value     = "Server=tcp:${azurerm_mssql_server.this.fully_qualified_domain_name},1433;Database=${azurerm_mssql_database.this.name};User ID=${azurerm_mssql_server.this.administrator_login};Encrypt=True;"
+  sensitive = true
 }
