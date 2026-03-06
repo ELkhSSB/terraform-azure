@@ -1,0 +1,267 @@
+# ================================================================
+#  PIPELINE TERRAFORM — AZURE dev
+#  
+#  Déclencheurs :
+#    - Push sur "main"     → plan + apply automatique
+#    - Push sur "dev"      → plan uniquement (pas d'apply)
+#    - Pull Request        → plan + commentaire sur la PR
+#    - Manuel (workflow_dispatch) → choix de l'action
+# ================================================================
+
+name: "Terraform Azure dev"
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - "**.tf"
+      - "**.tfvars"
+      - ".github/workflows/terraform.yml"
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "**.tf"
+      - "**.tfvars"
+
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "Action à exécuter"
+        required: true
+        default: "plan"
+        type: choice
+        options:
+          - plan
+          - apply
+          - destroy
+
+# Empêche 2 pipelines de tourner en même temps sur le même env
+concurrency:
+  group: terraform-dev
+  cancel-in-progress: false
+
+env:
+  TF_VERSION: "1.7.0"
+  TF_WORKING_DIR: "."
+  ARM_CLIENT_ID:       ${{ secrets.ARM_CLIENT_ID }}
+  ARM_CLIENT_SECRET:   ${{ secrets.ARM_CLIENT_SECRET }}
+  ARM_SUBSCRIPTION_ID: ${{ secrets.ARM_SUBSCRIPTION_ID }}
+  ARM_TENANT_ID:       ${{ secrets.ARM_TENANT_ID }}
+
+jobs:
+
+  # ---------------------------------------------------------------
+  # JOB 1 : VALIDATE — Toujours exécuté
+  # Vérifie la syntaxe et le formatage du code Terraform
+  # ---------------------------------------------------------------
+  validate:
+    name: "Validate"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Format Check
+        id: fmt
+        run: terraform fmt -check -recursive
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        continue-on-error: true
+
+      - name: Terraform Init
+        id: init
+        run: terraform init -backend=false
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Terraform Validate
+        id: validate
+        run: terraform validate -no-color
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+  # ---------------------------------------------------------------
+  # JOB 2 : PLAN — Exécuté sur push et PR
+  # Montre ce qui va être créé/modifié/supprimé
+  # ---------------------------------------------------------------
+  plan:
+    name: "Plan"
+    runs-on: ubuntu-latest
+    needs: validate
+
+    outputs:
+      plan_exit_code: ${{ steps.plan.outputs.exitcode }}
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: true
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_SA }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=dev.terraform.tfstate"
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan \
+            -no-color \
+            -detailed-exitcode \
+            -out=tfplan \
+            -var="project=${{ secrets.TF_PROJECT }}" \
+            -var="environment=dev"
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        continue-on-error: true
+
+      - name: Sauvegarder le plan
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan
+          path: tfplan
+          retention-days: 5
+
+      # Poster le résultat du plan en commentaire sur la PR
+      - name: Commenter la PR avec le plan
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const output = `
+            ## Terraform Plan — dev
+
+            | Étape | Résultat |
+            |-------|---------|
+            | Format  | ${{ steps.fmt.outcome == 'success' && '✅' || '⚠️' }} |
+            | Init    | ✅ |
+            | Validate | ✅ |
+            | Plan    | ${{ steps.plan.outcome == 'success' && '✅' || '❌' }} |
+
+            <details><summary>Voir le plan complet</summary>
+
+            \`\`\`hcl
+            ${{ steps.plan.outputs.stdout }}
+            \`\`\`
+            </details>
+
+            *Poussé par @${{ github.actor }} sur \`${{ github.ref_name }}\`*
+            `;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      - name: Vérifier le résultat du plan
+        if: steps.plan.outputs.exitcode == '1'
+        run: |
+          echo "❌ Le plan Terraform a échoué"
+          exit 1
+
+  # ---------------------------------------------------------------
+  # JOB 3 : APPLY — Seulement sur push "main" ou déclenchement manuel
+  # Applique les changements sur Azure
+  # ---------------------------------------------------------------
+  apply:
+    name: "🚀 Apply"
+    runs-on: ubuntu-latest
+    needs: plan
+    environment: dev   # ← Environnement GitHub avec approbation manuelle
+
+    if: |
+      (github.ref == 'refs/heads/main' && github.event_name == 'push') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply')
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_SA }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=dev.terraform.tfstate"
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Télécharger le plan sauvegardé
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Résumé du déploiement
+        run: |
+          echo "## ✅ Déploiement réussi" >> $GITHUB_STEP_SUMMARY
+          echo "- **Environnement** : dev" >> $GITHUB_STEP_SUMMARY
+          echo "- **Déclenché par** : ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit** : ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          terraform output -no-color >> $GITHUB_STEP_SUMMARY
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+  # ---------------------------------------------------------------
+  # JOB 4 : DESTROY — Seulement si déclenché manuellement
+  # Détruit toute l'infrastructure (dangereux !)
+  # ---------------------------------------------------------------
+  destroy:
+    name: "💣 Destroy"
+    runs-on: ubuntu-latest
+    needs: validate
+    environment: dev-destroy   # ← Environnement séparé avec approbation obligatoire
+
+    if: |
+      github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'destroy'
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="resource_group_name=${{ secrets.TF_STATE_RG }}" \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_SA }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=dev.terraform.tfstate"
+        working-directory: ${{ env.TF_WORKING_DIR }}
+
+      - name: Terraform Destroy
+        run: |
+          terraform destroy \
+            -auto-approve \
+            -var="project=${{ secrets.TF_PROJECT }}" \
+            -var="environment=dev"
+        working-directory: ${{ env.TF_WORKING_DIR }}

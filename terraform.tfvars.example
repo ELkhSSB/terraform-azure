@@ -1,0 +1,39 @@
+# ================================================================
+# terraform.tfvars.example
+# Ce fichier peut être commité (pas de valeurs sensibles)
+# ================================================================
+
+project     = "monprojet"
+environment = "dev"
+location    = "francecentral"
+
+tags = {
+  owner       = "ton-equipe"
+  cost-center = "dev"
+}
+
+# Modules à activer
+create_networking = true
+create_vm         = true
+create_storage    = false
+create_database   = false
+create_keyvault   = false
+create_monitoring = false
+
+# Réseau
+vnet_address_space = ["10.0.0.0/16"]
+subnets = {
+  subnet-app  = { address_prefix = "10.0.1.0/24" }
+  subnet-db   = { address_prefix = "10.0.2.0/24" }
+  subnet-mgmt = { address_prefix = "10.0.3.0/24" }
+}
+
+# VM
+vm_config = {
+  name           = "vm-app"
+  size           = "Standard_B2s"
+  admin_username = "azureuser"
+  os_type        = "linux"
+  disk_size_gb   = 30
+}
+vm_subnet_name = "subnet-app"
