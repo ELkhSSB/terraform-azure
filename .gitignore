@@ -1,0 +1,25 @@
+# Terraform state — ne jamais commiter
+*.tfstate
+*.tfstate.backup
+.terraform/
+.terraform.lock.hcl
+
+# Plan files
+tfplan
+*.tfplan
+
+# Variables sensibles
+*.tfvars
+!terraform.tfvars.example
+
+# Clés et certificats
+*.pem
+*.key
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
